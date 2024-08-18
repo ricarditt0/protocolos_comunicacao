@@ -36,7 +36,6 @@ header ipv4_t {
 }
 
 header int_pai_t {
-    bit<32> Tamanho_Filho;
     bit<32> Quantidade_Filhos;
     bit<16>  next_header;
 }
@@ -77,7 +76,26 @@ parser MyParser(packet_in packet,
         packet.extract(hdr.ethernet);
         transition select(hdr.ethernet.etherType) {
             TYPE_IPV4: parse_ipv4;
+            TYPE_INT:  parse_int_pai;
             default: accept;
+        }
+    }
+
+    state parse_int_pai {
+        packet.extract(hdr.int_pai);
+        meta.remaining = hdr.int_pai.Quantidade_Filhos;
+        transition select(meta.remaining){
+            0: parse_ipv4;
+            default: parse_int_filho;
+        }
+    }
+
+    state parse_int_filho {
+        packet.extract(hdr.int_filho.next);
+        meta.remaining = meta.remaining - 1;
+        transition select(meta.remaining){
+            0: parse_ipv4;
+            default: parse_int_filho;
         }
     }
 
@@ -142,7 +160,42 @@ control MyIngress(inout headers hdr,
 control MyEgress(inout headers hdr,
                  inout metadata meta,
                  inout standard_metadata_t standard_metadata) {
-    apply {  }
+
+    action add_int_pai(){
+        hdr.int_pai.setValid();
+        hdr.int_pai.Quantidade_Filhos = 0;
+        hdr.int_pai.next_header = hdr.ethernet.etherType;
+
+        hdr.ethernet.etherType = TYPE_INT;
+    }
+
+    action add_int_filho(bit<32> swid){
+        hdr.int_pai.Quantidade_Filhos = hdr.int_pai.Quantidade_Filhos + 1;
+
+        hdr.int_filho[0].setValid();
+        hdr.int_filho[0].ID_Switch = swid;
+        hdr.int_filho[0].Porta_Entrada = standard_metadata.ingress_port;
+        hdr.int_filho[0].Porta_Saida = standard_metadata.egress_spec;
+        hdr.int_filho[0].Timestamp = standard_metadata.egress_global_timestamp;
+    }
+
+    table int_filho_table{
+        actions = {
+            add_int_filho;
+            NoAction;
+        }
+        default_action = NoAction();
+    }
+
+    apply {
+        if(hdr.int_pai.isValid()){
+            hdr.int_pai.Quantidade_Filhos = hdr.int_pai.Quantidade_Filhos+1; 
+            int_filho_table.apply();
+        } else {
+            add_int_pai();
+            int_filho_table.apply();
+        }
+    }
 }
 
 /*************************************************************************
@@ -176,6 +229,8 @@ control MyComputeChecksum(inout headers  hdr, inout metadata meta) {
 control MyDeparser(packet_out packet, in headers hdr) {
     apply {
         packet.emit(hdr.ethernet);
+        packet.emit(hdr.int_pai);
+        packet.emit(hdr.int_filho);
         packet.emit(hdr.ipv4);
     }
 }

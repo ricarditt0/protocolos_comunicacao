@@ -62,7 +62,6 @@ class INT_filho(Packet):
 class INT(Packet):
     name = "INT"
     fields_desc = [
-        BitField("Tamanho_Filho", 0, 32),
         BitField("Quantidade_Filhos", 0, 32),
         BitField("next_header", 0, 16),
         PacketListField("filhos", [], INT_filho,

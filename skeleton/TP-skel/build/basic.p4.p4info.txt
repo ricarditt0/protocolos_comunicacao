@@ -24,6 +24,20 @@ tables {
   }
   size: 1024
 }
+tables {
+  preamble {
+    id: 37066784
+    name: "MyEgress.int_filho_table"
+    alias: "int_filho_table"
+  }
+  action_refs {
+    id: 29341121
+  }
+  action_refs {
+    id: 21257015
+  }
+  size: 1024
+}
 actions {
   preamble {
     id: 21257015
@@ -54,6 +68,25 @@ actions {
     id: 2
     name: "port"
     bitwidth: 9
+  }
+}
+actions {
+  preamble {
+    id: 20562823
+    name: "MyEgress.add_int_pai"
+    alias: "add_int_pai"
+  }
+}
+actions {
+  preamble {
+    id: 29341121
+    name: "MyEgress.add_int_filho"
+    alias: "add_int_filho"
+  }
+  params {
+    id: 1
+    name: "swid"
+    bitwidth: 32
   }
 }
 type_info {
