@@ -167,34 +167,25 @@ control MyEgress(inout headers hdr,
         hdr.int_pai.next_header = hdr.ethernet.etherType;
 
         hdr.ethernet.etherType = TYPE_INT;
+
     }
 
-    action add_int_filho(bit<32> swid){
+    action add_int_filho(){
+
+        hdr.int_filho[hdr.int_pai.Quantidade_Filhos].setValid();
+        hdr.int_filho[hdr.int_pai.Quantidade_Filhos].ID_Switch = 0;
+        hdr.int_filho[hdr.int_pai.Quantidade_Filhos].Porta_Entrada = standard_metadata.ingress_port;
+        hdr.int_filho[hdr.int_pai.Quantidade_Filhos].Porta_Saida = standard_metadata.egress_port;
+        hdr.int_filho[hdr.int_pai.Quantidade_Filhos].Timestamp = standard_metadata.egress_global_timestamp;
+
         hdr.int_pai.Quantidade_Filhos = hdr.int_pai.Quantidade_Filhos + 1;
-
-        hdr.int_filho[0].setValid();
-        hdr.int_filho[0].ID_Switch = swid;
-        hdr.int_filho[0].Porta_Entrada = standard_metadata.ingress_port;
-        hdr.int_filho[0].Porta_Saida = standard_metadata.egress_spec;
-        hdr.int_filho[0].Timestamp = standard_metadata.egress_global_timestamp;
-    }
-
-    table int_filho_table{
-        actions = {
-            add_int_filho;
-            NoAction;
-        }
-        default_action = NoAction();
     }
 
     apply {
-        if(hdr.int_pai.isValid()){
-            hdr.int_pai.Quantidade_Filhos = hdr.int_pai.Quantidade_Filhos+1; 
-            int_filho_table.apply();
-        } else {
+        if(!hdr.int_pai.isValid()){
             add_int_pai();
-            int_filho_table.apply();
         }
+        add_int_filho();
     }
 }
 
