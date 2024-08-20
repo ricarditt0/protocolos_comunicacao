@@ -32,27 +32,14 @@ def get_if():
         print("Cannot find eth0 interface")
         exit(1)
     return iface
-"""
-class IPOption_MRI(IPOption):
-    name = "MRI"
-    option = 31
-    fields_desc = [ _IPOption_HDR,
-                    FieldLenField("length", None, fmt="B",
-                                  length_of="swids",
-                                  adjust=lambda pkt,l:l+4),
-                    ShortField("count", 0),
-                    FieldListField("swids",
-                                   [],
-                                   IntField("", 0),
-                                   length_from=lambda pkt:pkt.count*4) ]
-"""
 
 class INT_filho(Packet):
     fields_desc = [
         BitField("ID_Switch", 0, 32),
         BitField("Porta_Entrada", 0, 9),
         BitField("Porta_Saida", 0, 9),
-        BitField("Timestamp", 0, 48),
+        BitField("Timestamp_ingress", 0, 48),
+		BitField("Timestamp_egress",0 ,48),
         BitField("padding", 0, 6)
     ]
 
@@ -64,6 +51,7 @@ class INT(Packet):
     fields_desc = [
         BitField("Quantidade_Filhos", 0, 32),
         BitField("next_header", 0, 16),
+		BitField("MTU_Overflow", 0, 8),
         PacketListField("filhos", [], INT_filho,
                         count_from=lambda pkt: pkt.Quantidade_Filhos)
     ]
@@ -72,8 +60,15 @@ class INT(Packet):
 def handle_pkt(pkt):
     if TCP in pkt and pkt[TCP].dport == 1234:
         print("got a packet")
+
+        # Verifica se o campo MTU_Overflow é igual a 1
+        if INT in pkt and pkt[INT].MTU_Overflow == 1:
+            print("Warning: MTU overflow detected!")
+        else:
+            print("No overflow detected")
+
         pkt.show2()
-    #    hexdump(pkt)
+
         sys.stdout.flush()
 
 

@@ -5,7 +5,8 @@
 const bit<16> TYPE_IPV4 = 0x800;
 const bit<16> TYPE_INT = 0x88B7;
 #define MAX_HOPS 30
-
+#define MTU 1500
+#define FILHO_TAM 16
 /*************************************************************************
 *********************** H E A D E R S  ***********************************
 *************************************************************************/
@@ -37,14 +38,16 @@ header ipv4_t {
 
 header int_pai_t {
     bit<32> Quantidade_Filhos;
-    bit<16>  next_header;
+    bit<16> next_header;
+    bit<8>  MTU_Overflow;
 }
 
 header int_filho_t {
     bit<32> ID_Switch;
     bit<9> Porta_Entrada;
     bit<9> Porta_Saida;
-    bit<48> Timestamp;
+    bit<48> Timestamp_ingress;
+    bit<48> Timestamp_egress;
     bit<6> padding;
     }
 
@@ -165,6 +168,7 @@ control MyEgress(inout headers hdr,
         hdr.int_pai.setValid();
         hdr.int_pai.Quantidade_Filhos = 0;
         hdr.int_pai.next_header = hdr.ethernet.etherType;
+        hdr.int_pai.MTU_Overflow = 0;
 
         hdr.ethernet.etherType = TYPE_INT;
 
@@ -173,10 +177,11 @@ control MyEgress(inout headers hdr,
     action add_int_filho(){
 
         hdr.int_filho[hdr.int_pai.Quantidade_Filhos].setValid();
-        hdr.int_filho[hdr.int_pai.Quantidade_Filhos].ID_Switch = 0;
+        hdr.int_filho[hdr.int_pai.Quantidade_Filhos].ID_Switch = hdr.int_pai.Quantidade_Filhos;
         hdr.int_filho[hdr.int_pai.Quantidade_Filhos].Porta_Entrada = standard_metadata.ingress_port;
         hdr.int_filho[hdr.int_pai.Quantidade_Filhos].Porta_Saida = standard_metadata.egress_port;
-        hdr.int_filho[hdr.int_pai.Quantidade_Filhos].Timestamp = standard_metadata.egress_global_timestamp;
+        hdr.int_filho[hdr.int_pai.Quantidade_Filhos].Timestamp_ingress = standard_metadata.ingress_global_timestamp;
+        hdr.int_filho[hdr.int_pai.Quantidade_Filhos].Timestamp_egress = standard_metadata.egress_global_timestamp;
 
         hdr.int_pai.Quantidade_Filhos = hdr.int_pai.Quantidade_Filhos + 1;
     }
@@ -185,7 +190,12 @@ control MyEgress(inout headers hdr,
         if(!hdr.int_pai.isValid()){
             add_int_pai();
         }
-        add_int_filho();
+        if(standard_metadata.packet_length + FILHO_TAM < MTU){
+            add_int_filho();
+        }else{
+            hdr.int_pai.MTU_Overflow = 1;
+        }
+
     }
 }
 
